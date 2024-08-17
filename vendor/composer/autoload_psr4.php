@@ -9,3 +9,5 @@ return array(
     'TemplifyWP\\TemplifyImporterTemplates\\' => array($baseDir . '/include/resources'),
     'AwesomeMotive\\WPContentImporter2\\' => array($baseDir . '/wxr-importer'),
 );
+
+

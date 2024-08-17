@@ -18,8 +18,6 @@ if ( ! class_exists( 'WP_Customize_Control' ) ) {
 	return;
 }
 
-
-
 /**
  * Class Templify_Importer_Control_Import_Export 
  *

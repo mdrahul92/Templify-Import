@@ -310,6 +310,7 @@ class Customizer_Import_Export {
 			$templify_importer_import_error = __( 'Error importing settings! The settings you uploaded are not for the Kadence Theme.', 'templify-importer-templates' );
 			return;
 		}
+
 		// Import images.
 		$data['mods'] = self::import_images( $data['mods'] );
 
@@ -328,6 +329,7 @@ class Customizer_Import_Export {
 				$option->import( $option_value );
 			}
 		}
+		
 		// If wp_css is set then import it.
 		if ( function_exists( 'wp_update_custom_css_post' ) && isset( $data['wp_css'] ) && '' !== $data['wp_css'] ) {
 			wp_update_custom_css_post( $data['wp_css'] );

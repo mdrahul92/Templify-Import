@@ -81,11 +81,9 @@ class ImportActions {
 	 * @param array $import_files          The filtered import files defined in `templify-importer-templates/import_files` filter.
 	 * @param int   $selected_index        Selected index of import.
 	 */
-	public function after_import_action( $selected_import_files, $import_files, $selected_index, $selected_palette, $selected_font ) {
+	public function after_import_action( $selected_import_data, $import_files, $selected_index, $selected_palette, $selected_font ) {
 		$this->do_import_action( 'templify-importer-templates/after_import', $import_files[ $selected_index ], $selected_palette, $selected_font );
 	}
-
-
 
     /**
 	 * Change the menu IDs in the custom menu widgets in the widget import data.

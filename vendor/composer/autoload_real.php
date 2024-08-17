@@ -35,6 +35,8 @@ class ComposerAutoloaderInit8283c873e984087f8020f756403ba3f9
             if ($classMap) {
                 $loader->addClassMap($classMap);
             }
+
+            
         }
 
         $loader->setClassMapAuthoritative(true);

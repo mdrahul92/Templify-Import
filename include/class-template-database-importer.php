@@ -95,7 +95,7 @@ class Template_Database_Importer {
 	 * @access protected
 	 * @var string
 	 */
-protected $remote_url = 'https://api.startertemplatecloud.com/wp-json/templify-starter/v1/get/';
+	protected $remote_url = 'https://api.startertemplatecloud.com/wp-json/templify-starter/v1/get/';
 
 	/**
 	 * The final data.
@@ -161,7 +161,6 @@ protected $remote_url = 'https://api.startertemplatecloud.com/wp-json/templify-s
 		}
 		return $this->starter_templates_folder;
 	}
-
 	/**
 	 * Write the data to the filesystem.
 	 *
@@ -208,7 +207,6 @@ protected $remote_url = 'https://api.startertemplatecloud.com/wp-json/templify-s
 	public function get_data() {
 		// Get the remote URL contents.
 		$this->data = $this->get_remote_url_contents();
-
 		return $this->data;
 	}
 	/**
@@ -219,12 +217,10 @@ protected $remote_url = 'https://api.startertemplatecloud.com/wp-json/templify-s
 	 */
 	public function get_local_template_data_contents() {
 		$local_path = $this->get_local_template_content_data_path();
-
 		// Check if the local stylesheet exists. (true means the file doesn't exist).
 		// if ( $this->local_file_exists() ) {
 		// 	return false;
 		// }
-
 		ob_start();
 		include $local_path;
 		return ob_get_clean();
@@ -252,6 +248,7 @@ protected $remote_url = 'https://api.startertemplatecloud.com/wp-json/templify-s
 				'site_url'  => $site_url,
 			)
 		);
+		
 		// Get the response.
 		$api_url  = add_query_arg( $args, $this->remote_url );
 		$response = wp_remote_get( $api_url );

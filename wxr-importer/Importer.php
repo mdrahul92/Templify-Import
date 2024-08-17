@@ -450,7 +450,7 @@
 		$this->import_end();
 
 		// Set the current importer state, so the data can be used on the next AJAX call.
-		$this->set_current_importer_data();
+		$this->set_current_importerr_data1();
 
 		return true;
 	}
@@ -520,8 +520,9 @@
 				'status'                => 'newAJAX',
 				'log'                   => 'Time for new AJAX request!: ' . $time,
 				'num_of_imported_posts' => count( $this->mapping['post'] ),
-			);
 
+			);
+			
 			// Add any output to the log file and clear the buffers.
 			$message = ob_get_clean();
 
@@ -557,8 +558,8 @@
 	/**
 	 * Save current importer data to the DB, for later use.
 	 */
-	public function set_current_importer_data() {
-		$data = apply_filters( 'pt-importer/set_current_importer_data', array(
+	public function set_current_importerr_data() {
+		$data = apply_filters( 'pt-importer/set_current_importerr_data', array(
 			'options'            => $this->options,
 			'mapping'            => $this->mapping,
 			'requires_remapping' => $this->requires_remapping,

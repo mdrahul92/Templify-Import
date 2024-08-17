@@ -206,6 +206,9 @@
                     "lucatume\\DI52\\": "src/"
                 }
             },
+
+
+            
             "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "GPL-3.0"

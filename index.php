@@ -88,7 +88,6 @@ function fetch_theme_files(WP_REST_Request $request) {
     } else {
         return new WP_REST_Response(array('error' => 'The starter subfolder does not exist.'), 404);
     }
-
     return new WP_REST_Response($files, 200);
 }
 // Deactivation hook

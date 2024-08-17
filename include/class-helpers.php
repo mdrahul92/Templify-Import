@@ -125,9 +125,6 @@ class Helpers {
 		// Return the file data
 		return $data;
 	}
-
-
-    
 	/**
 	 * Helper function: check for WP file-system credentials needed for reading and writing to a file.
 	 *
@@ -147,7 +144,6 @@ class Helpers {
 				)
 			);
 		}
-
 		// Get plugin page settings.
 		$plugin_page_setup =  array(
 				'parent_slug' => 'themes.php',
@@ -175,7 +171,6 @@ class Helpers {
 				__( 'Your WordPress login credentials don\'t allow to use WP_Filesystem!', 'kadence-starter-templates' )
 			);
 		}
-
 		return true;
 	}
 

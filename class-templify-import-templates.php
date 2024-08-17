@@ -121,6 +121,12 @@ class Importer_Templates {
 	 * @var array
 	 */
 	private $selected_import_files;
+/**
+	 * The paths of the actual import files to be used in the import.
+	 *
+	 * @var array
+	 */
+	private $selected_import_data;
 
 	/**
 	 * Holds any error messages, that should be printed out at the end of the import.
@@ -174,15 +180,15 @@ class Importer_Templates {
 			// Ajax Calls.
 			add_action( 'wp_ajax_templify_import_demo_data', array( $this, 'import_demo_data_ajax_callback' ) );
 			add_action( 'wp_ajax_templify_import_initial', array( $this, 'initial_install_ajax_callback' ) );
-			 add_action( 'wp_ajax_templify_import_install_plugins', array( $this, 'install_plugins_ajax_callback' ) );
+			add_action( 'wp_ajax_templify_import_install_plugins', array( $this, 'install_plugins_ajax_callback' ) );
 			add_action( 'wp_ajax_templify_import_customizer_data', array( $this, 'import_customizer_data_ajax_callback' ) );
 			add_action( 'wp_ajax_templify_after_import_data', array( $this, 'after_all_import_data_ajax_callback' ) );
 			add_action( 'wp_ajax_templify_import_single_data', array( $this, 'import_demo_single_data_ajax_callback' ) );
 			add_action( 'wp_ajax_templify_remove_past_import_data', array( $this, 'remove_past_data_ajax_callback' ) );
-			// add_action( 'wp_ajax_templify_check_plugin_data', array( $this, 'check_plugin_data_ajax_callback' ) );
+	      	add_action( 'wp_ajax_templify_check_plugin_data', array( $this, 'check_plugin_data_ajax_callback' ) );
 			add_action( 'wp_ajax_templify_importer_dismiss_notice', array( $this, 'ajax_dismiss_starter_notice' ) );
-	
-			add_action('wp_ajax_load_create_plugin_template', 'load_create_plugin_template');
+			add_action( 'wp_ajax_import_selected_plugin',array( $this,'ajax_import_selected_plugin_callback'));
+			add_action( 'wp_ajax_import_selected_plugin2',array( $this,'ajax_import_selected_plugin_callback2'));
 		}
 
 		add_action( 'init', array( $this, 'setup_plugin_with_filter_data' ) );
@@ -208,7 +214,207 @@ class Importer_Templates {
 
 	add_action('wp_ajax_get_custom_filter_data', array( $this,'get_custom_filter_data'));
 
+	add_action('wp_ajax_display_selected_plugin', array( $this,'handle_display_selected_plugin'));
+	add_action('wp_ajax_nopriv_display_selected_plugin', array($this, 'handle_display_selected_plugin'));
+
 }
+
+
+function ajax_import_selected_plugin_callback(){
+	// $plugin_path = $this->get_plugin_basename_from_slug( $slug );
+
+	// if ( empty( $plugin_path ) ) {
+	// 	return false;
+	// }
+
+	// return is_plugin_active( $plugin_path );
+}
+
+
+function ajax_import_selected_plugin_callback2(){
+	$upgrader = new \Plugin_Upgrader( new PluginInstallerSkin( $skin_args ) );
+}
+
+public function handle_display_selected_plugin() {
+    // Check for the 'plugins' POST variable
+    if (isset($_POST['plugins'])) {
+        $pluginsDataRaw = json_decode(stripslashes($_POST['plugins']), true);
+
+        // Check for JSON errors and if the data is an array
+        if (json_last_error() === JSON_ERROR_NONE && is_array($pluginsDataRaw)) {
+            // Sanitize each plugin name in the array
+            $pluginsData = array_map(function($pluginName) {
+                return filter_var($pluginName, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+            }, $pluginsDataRaw);
+
+            if (!empty($pluginsData)) {
+                // Prepare an array to hold the status of each plugin
+                $pluginsStatus = [];
+                foreach ($pluginsData as $plugin) {
+                    $pluginSlug = explode('/', $plugin)[0]; // Extract plugin slug
+                    $isActive = is_plugin_active($plugin); // Check if the plugin is active
+                    $pluginsStatus[] = [
+                        'name' => $plugin,
+                        'is_active' => $isActive,
+                    ];
+                }
+
+                // Send the list of plugins and their status back as a JSON response
+                wp_send_json_success($pluginsStatus);
+            } else {
+                wp_send_json_error('No valid plugin selected.');
+            }
+        } else {
+            wp_send_json_error('Invalid JSON data. Error: ' . json_last_error_msg());
+        }
+    } else {
+        wp_send_json_error('Plugin data not received.');
+    }
+
+    wp_die(); // Terminate the script correctly
+}
+
+public function check_plugin_data_ajax_callback() {
+	Helpers::verify_ajax_call();
+	if ( ! isset( $_POST['selected'] ) || ! isset( $_POST['builder'] ) ) {
+		wp_send_json_error( 'Missing Parameters' );
+	}
+	$selected_index   = empty( $_POST['selected'] ) ? '' : sanitize_text_field( $_POST['selected'] );
+	$selected_builder = empty( $_POST['builder'] ) ? '' : sanitize_text_field( $_POST['builder'] );
+	if ( empty( $selected_index ) || empty( $selected_builder ) ) {
+		wp_send_json_error( 'Missing Parameters' );
+	}
+	if ( empty( $this->import_files ) || ( is_array( $this->import_files ) && ! isset( $this->import_files[ $selected_index ] ) ) ) {
+		$template_database  = Template_Database_Importer::get_instance();
+		$this->import_files = $template_database->get_importer_files( $selected_index, $selected_builder );
+	}
+	if ( ! isset( $this->import_files[ $selected_index ] ) ) {
+		wp_send_json_error( 'Missing Template' );
+	}
+	$info = $this->import_files[ $selected_index ];
+
+	if ( isset( $info['plugins'] ) && ! empty( $info['plugins'] ) ) {
+
+		if ( ! function_exists( 'plugins_api' ) ) {
+			require_once( ABSPATH . 'wp-admin/includes/plugin-install.php' );
+		}
+		$importer_plugins = array (
+			'woocommerce' => array(
+				'title' => 'Woocommerce',
+				'base'  => 'woocommerce',
+				'slug'  => 'woocommerce',
+				'path'  => 'woocommerce/woocommerce.php',
+				'src'   => 'repo',
+			),
+			'elementor' => array(
+				'title' => 'Elementor',
+				'base'  => 'elementor',
+				'slug'  => 'elementor',
+				'path'  => 'elementor/elementor.php',
+				'src'   => 'repo',
+			),
+			'kadence-blocks' => array(
+				'title' => 'Kadence Blocks',
+				'base'  => 'kadence-blocks',
+				'slug'  => 'kadence-blocks',
+				'path'  => 'kadence-blocks/kadence-blocks.php',
+				'src'   => 'repo',
+			),
+			'kadence-blocks-pro' => array(
+				'title' => 'Kadence Block Pro',
+				'base'  => 'kadence-blocks-pro',
+				'slug'  => 'kadence-blocks-pro',
+				'path'  => 'kadence-blocks-pro/kadence-blocks-pro.php',
+				'src'   => 'bundle',
+			),
+			'kadence-pro' => array(
+				'title' => 'Kadence Pro',
+				'base'  => 'kadence-pro',
+				'slug'  => 'kadence-pro',
+				'path'  => 'kadence-pro/kadence-pro.php',
+				'src'   => 'bundle',
+			),
+			
+			'kadence-woo-extras' => array(
+				'title' => 'Kadence Shop Kit',
+				'base'  => 'kadence-woo-extras',
+				'slug'  => 'kadence-woo-extras',
+				'path'  => 'kadence-woo-extras/kadence-woo-extras.php',
+				'src'   => 'bundle',
+			),
+		
+		);
+		$plugin_information = array();
+		foreach( $info['plugins'] as $plugin ) {
+			$path = false;
+			if ( strpos( $plugin, '/' ) !== false ) {
+				$path = $plugin;
+				$arr  = explode( '/', $plugin, 2 );
+				$base = $arr[0];
+				if ( isset( $importer_plugins[ $base ] ) && isset( $importer_plugins[ $base ]['src'] ) ) {
+					$src = $importer_plugins[ $base ]['src'];
+				} else {
+					$src = 'unknown';
+				}
+				if ( isset( $importer_plugins[ $base ] ) && isset( $importer_plugins[ $base ]['title'] ) ) {
+					$title = $importer_plugins[ $base ]['title'];
+				} else {
+					$title = $base;
+				}
+			} elseif ( isset( $importer_plugins[ $plugin ] ) ) {
+				$path   = $importer_plugins[ $plugin ]['path'];
+				$base   = $importer_plugins[ $plugin ]['base'];
+				$src    = $importer_plugins[ $plugin ]['src'];
+				$title  = $importer_plugins[ $plugin ]['title'];
+			}
+			if ( $path ) {
+				$state = Plugin_Check::active_check( $path );
+				if ( 'unknown' === $src ) {
+					$check_api = plugins_api(
+						'plugin_information',
+						array(
+							'slug' => $base,
+							'fields' => array(
+								'short_description' => false,
+								'sections' => false,
+								'requires' => false,
+								'rating' => false,
+								'ratings' => false,
+								'downloaded' => false,
+								'last_updated' => false,
+								'added' => false,
+								'tags' => false,
+								'compatibility' => false,
+								'homepage' => false,
+								'donate_link' => false,
+							),
+						)
+					);
+					if ( ! is_wp_error( $check_api ) ) {
+						$title = $check_api->name;
+						$src   = 'repo';
+					}
+				}
+				$plugin_information[ $plugin ] = array(
+					'state' => $state,
+					'src'   => $src,
+					'title' => $title,
+				);
+			} else {
+				$plugin_information[ $plugin ] = array(
+					'state' => 'unknown',
+					'src'   => 'unknown',
+					'title' => $plugin,
+				);
+			}
+		}
+		wp_send_json( $plugin_information );
+	} else {
+		wp_send_json_error( 'Missing Plugins' );
+	}
+}
+
+
 
 
 public function get_custom_filter_data() {
@@ -219,15 +425,15 @@ public function get_custom_filter_data() {
 	$response = wp_remote_get($api_url, array('timeout' => 20)); // Increase timeout to 20 seconds
 
 	// Log the request and response
-	error_log('Making API call to: ' . $api_url);
+	//error_log('Making API call to: ' . $api_url);
 	if (is_wp_error($response)) {
-		error_log('API call failed: ' . $response->get_error_message());
+	//	error_log('API call failed: ' . $response->get_error_message());
 		wp_send_json_error('API call failed: ' . $response->get_error_message());
 		return;
 	}
 
 	// Log the response for debugging
-	error_log('API call response: ' . print_r($response, true));
+	//error_log('API call response: ' . print_r($response, true));
 
 	// Get the response body
 	$body = wp_remote_retrieve_body($response);
@@ -273,16 +479,8 @@ public function get_custom_filter_data() {
 	}
 
 
-	function load_create_plugin_template() {
-		ob_start();
-		include TEMPLIFY_IMPORT_TEMPLATES_PATH . 'include/views/create-plugin.php';
-		
-		$content = ob_get_clean();
-		echo $content;
-		wp_die();
-	}
 
-	// add_action('wp_ajax_nopriv_load_create_plugin_template', 'load_create_plugin_template');
+
 	
 		/**
 	 * Get Page by title.
@@ -339,8 +537,6 @@ public function get_custom_filter_data() {
 
 	}
 
-
-
 	/**
 	 * Add settings link
 	 *
@@ -384,9 +580,6 @@ public function get_custom_filter_data() {
 	 *
 	 * @param array $selected_import the selected import.
 	 */
-
-
-
 	public function templify_templify_theme_after_import( $selected_import, $selected_palette, $selected_font ) {
 		if ( class_exists( 'woocommerce' ) && isset( $selected_import['ecommerce'] ) && $selected_import['ecommerce'] ) {
 			$this->import_demo_woocommerce();
@@ -405,7 +598,6 @@ public function get_custom_filter_data() {
 			}
 			set_theme_mod( 'nav_menu_locations', $menus_array );
 		}
-
 		// Fix Custom Menu items.
 		if ( ! empty( $selected_import['url'] ) ) {
 			$site_url = $this->remove_trailing_slash( $selected_import['url'] );
@@ -422,8 +614,6 @@ public function get_custom_filter_data() {
 				}
 			}
 		}
-
-	
 		if ( isset( $selected_import['homepage'] ) && ! empty( $selected_import['homepage'] ) ) {
 			$homepage = $this->get_page_by_title( $selected_import['homepage'] );
 			if ( isset( $homepage ) && $homepage->ID ) {
@@ -456,8 +646,6 @@ public function get_custom_filter_data() {
 		}
 		
 	}
-
-
 	/**
 	 * Get all menu item id's
 	 *
@@ -483,7 +671,6 @@ public function get_custom_filter_data() {
 		return null;
 	}
 
-
 	/**
 	 * After import run elementor stuff.
 	 */
@@ -498,6 +685,7 @@ public function get_custom_filter_data() {
 						'size' => 1242,
 						'sizes' => array(),
 					);
+
 					$container_width_tablet = array(
 						'unit' => 'px',
 						'size' => 700,
@@ -1187,6 +1375,8 @@ public function get_custom_filter_data() {
 				// Download the import files (content, widgets and customizer files).
 			 	$this->selected_import_files = Helpers::download_import_files();
 
+
+				$this->selected_import_data = $_POST['configData'];
 				// Check Errors.
 				if ( is_wp_error( $this->selected_import_files ) ) {
 					// Write error to log file and send an AJAX response with the error.
@@ -1385,32 +1575,24 @@ public function get_custom_filter_data() {
 		wp_send_json( array( 'status' => 'initialSuccess' ) );
 	}
 
-	/**
+		/**
 	 * AJAX callback to install a plugin.
 	 */
 	public function install_plugins_ajax_callback() {
-		Helpers::verify_ajax_call();
+	
+		
 
-		if ( ! isset( $_POST['selected'] ) || ! isset( $_POST['builder'] ) ) {
-			wp_send_json_error( 'Missing Information' );
-		}
+		
 		// Get selected file index or set it to 0.
 		$selected_index   = empty( $_POST['selected'] ) ? '' : sanitize_text_field( $_POST['selected'] );
 		$selected_builder = empty( $_POST['builder'] ) ? '' : sanitize_text_field( $_POST['builder'] );
-		if ( empty( $selected_index ) || empty( $selected_builder ) ) {
-			wp_send_json_error( 'Missing Parameters' );
-		}
+		
 		delete_transient( 'templify_importer_data' );
-		// if ( empty( $this->import_files ) || ( is_array( $this->import_files ) && ! isset( $this->import_files[ $selected_index ] ) ) ) {
-		// 	$template_database  = Template_Database_Importer::get_instance();
-		// 	$this->import_files = $template_database->get_importer_files( $selected_index, $selected_builder );
-		// }
-		if ( ! isset( $this->import_files[ $selected_index ] ) ) {
-			wp_send_json_error( 'Missing Template' );
-		}
-		$info = $this->import_files[ $selected_index ];
+		
 		$install = true;
-		if ( isset( $info['plugins'] ) && ! empty( $info['plugins'] ) ) {
+		if ( isset( $_POST['plugins'] ) && ! empty( $_POST['plugins'] ) ) {
+
+			$plugins = json_decode( stripslashes( $_POST['plugins'] ), true );
 
 			if ( ! function_exists( 'plugins_api' ) ) {
 				require_once( ABSPATH . 'wp-admin/includes/plugin-install.php' );
@@ -1461,8 +1643,12 @@ public function get_custom_filter_data() {
 					'path'  => 'kadence-woo-extras/kadence-woo-extras.php',
 					'src'   => 'bundle',
 				),
+				
 			);
-			foreach( $info['plugins'] as $plugin ) {
+			
+	
+			foreach( $plugins as $plugin ) {
+				//echo $plugin;
 				$path = false;
 				if ( strpos( $plugin, '/' ) !== false ) {
 					$path = $plugin;
@@ -1473,19 +1659,10 @@ public function get_custom_filter_data() {
 					} else {
 						$src = 'unknown';
 					}
-				} elseif ( isset( $importer_plugins[ $plugin ] ) ) {
-					$path = $importer_plugins[ $plugin ]['path'];
-					$base = $importer_plugins[ $plugin ]['base'];
-					$src  = $importer_plugins[ $plugin ]['src'];
-				}
+				} 
 				if ( $path ) {
 					$state = Plugin_Check::active_check( $path );
-					if ( 'woocommerce' === $base && empty( get_option( 'woocommerce_db_version' ) ) ) {
-						update_option( 'woocommerce_db_version', '4.0' );
-					}
-					if ( 'woocommerce' === $base && ( 'notactive' === $state || 'installed' === $state ) ) {
-						$this->ss = true;
-					}
+				//	echo $state;
 					if ( 'unknown' === $src ) {
 						$check_api = plugins_api(
 							'plugin_information',
@@ -1543,8 +1720,7 @@ public function get_custom_filter_data() {
 
 							$installed = $upgrader->install( $api->download_link );
 							if ( $installed ) {
-								$silent = ( 'elementor' === $base );
-								
+								$silent = (  'elementor' === $base  ? false : true );
 								
 								$activate = activate_plugin( $path, '', false, $silent );
 								if ( is_wp_error( $activate ) ) {
@@ -1561,22 +1737,20 @@ public function get_custom_filter_data() {
 							wp_send_json_error( 'Permissions Issue' );
 						}
 						$silent = false; 
-						//$silent = ( 'give' === $base || 'elementor' === $base ? false : true );
-					
 						$activate = activate_plugin( $path, '', false, $silent );
 						if ( is_wp_error( $activate ) ) {
 							$install = false;
 						}
 					}
 					
-					
-						$enabled = json_decode( get_option( 'templify_plugin_builder_config' ), true );
+					if ( 'kadence-pro' === $base ) {
+						$enabled = json_decode( get_option( 'templify_pro_theme_config' ), true );
 						$enabled['elements'] = true;
 						$enabled['header_addons'] = true;
 						$enabled['mega_menu'] = true;
 						$enabled = json_encode( $enabled );
-						update_option( 'templify_plugin_builder_config', $enabled );
-				
+						update_option( 'templify_pro_theme_config', $enabled );
+					}
 				}
 			}
 		}
@@ -1894,7 +2068,7 @@ public function get_custom_filter_data() {
 			 * Default actions:
 			 * 1 - after_import action (with priority 10).
 			 */
-			do_action( 'templify-importer-templates/after_all_import_execution', $this->selected_import_files, $this->import_files, $this->selected_index, $this->selected_palette, $this->selected_font );
+			do_action( 'templify-importer-templates/after_all_import_execution', $this->selected_import_data, $this->import_files, $this->selected_index, $this->selected_palette, $this->selected_font );
 		}
 
 		// Send a JSON response with final report.
@@ -2030,29 +2204,25 @@ public function get_custom_filter_data() {
 				set_transient( 'templify_import_posts_with_nav_block', $templify_post_nav_block, HOUR_IN_SECONDS );
 			}
 		} else {
-
 			/*
 			 * Save the `wp_navigation` post type mapping of the original menu ID and the new menu ID
 			 * in transient.
 			 */
-			$ocdi_menu_mapping = get_transient( 'templify_import_menu_mapping' );
+			$templify_menu_mapping = get_transient( 'templify_import_menu_mapping' );
 
-			if ( empty( $ocdi_menu_mapping ) ) {
-				$ocdi_menu_mapping = [];
+			if ( empty( $templify_menu_mapping ) ) {
+				$templify_menu_mapping = [];
 			}
 
 			// Let's save the mapping of the original menu ID and the new menu ID.
-			$ocdi_menu_mapping[] = [
+			$templify_menu_mapping[] = [
 				'original_menu_id' => $original_id,
 				'new_menu_id'      => $post_id,
 			];
 
-			set_transient( 'templify_import_menu_mapping', $ocdi_menu_mapping, HOUR_IN_SECONDS );
+			set_transient( 'templify_import_menu_mapping', $templify_menu_mapping, HOUR_IN_SECONDS );
 		}
 	}
-
-
-	
 	/**
 	 * Send a JSON response with final report.
 	 */
